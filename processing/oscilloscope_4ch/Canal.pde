@@ -10,7 +10,7 @@ class Canal{
  CheckBox curva; // suavizar as curvas com curveVertex() / vertex()
  CheckBox medir; // medir tempo e tensão
  // armazenamento dos dados recebidos do Garagino
- int qMax=100;
+ int qMax=408;
  int v[]=new int[qMax];
  int buffer[]=new int[qMax];
  boolean atualizou=false;
@@ -23,11 +23,12 @@ class Canal{
  int qPicos;
  float p0;   // posição tensão zero (0)
  boolean pegouP0=false; // indica que mouse pegou o p0
- //int vTrigger=0; // carregar o vTrigger do programa principal
  float p0Trigger; // posição do trigger
  boolean pegouTrigger=false; // indica que mouse pegou o trigger
  float dP0Trigger; // diferença entre p0 e p0trigger
- float mouseOffSet; // para deslocamento dos objetos (ex: p0)
+ float p0Out; // posição pixel do triangulo qInit
+ boolean pegouOut=false; // indica que pedou o triangulo do Out
+ float mouseOffSet; // para deslocamento dos objetos (ex: p0, p0Trigger, p0Out)
  //float fCalc, tCalc; // frequencia e periodo calculados a partir dos picos 
  FmtNum fCalc=new FmtNum(0,!nInt,fmt);
  FmtNum tCalc=new FmtNum(0,!nInt,fmt); // frequencia e periodo calculados a partir dos picos 
@@ -36,7 +37,11 @@ class Canal{
  //retangulo de medição da Tela
  boolean telaClicou=false;
  float xi,yi,dx,dy; // retangulo de medir tempo e tensão na tela
-
+ 
+ // 11/May/2017 triangle to move points out of visible window (qOut) for k=qInit; k<q; k++
+ //  qOut=qTotal-qVisible => qVisible=10*df/dt, qTotal (q.v.v)
+ int qOut=0;
+ int qInit=0; // qInit=int((px-leftWindow) * qOut/(10Q)) , Q=size of square in pixel
  
  //constructor
  Canal(byte n_,color nCor_, int x_, int y_, int w_, int h_){
@@ -86,6 +91,7 @@ class Canal{
         
       //  displayXYZ();       //mostrar XY 
       //} else{
+        
        //== mostrar a linha P0 de tensão zero
        strokeWeight(1); stroke(nCor,150);
        line(tela.x-10*n,p0,tela.x+tela.w,p0);
@@ -101,9 +107,22 @@ class Canal{
         strokeWeight(2); stroke(nCor,100);
         line(tela.x-10*n,p0Trigger,tela.x+tela.w,p0Trigger);
         fill(nCor); noStroke();
-        triangle(tela.x+tela.w,p0Trigger,tela.x+tela.w+10,p0Trigger-10,tela.x+tela.w+10,p0Trigger+10);
-        
+        triangle(tela.x+tela.w,p0Trigger,tela.x+tela.w+10,p0Trigger,tela.x+tela.w+10,p0Trigger-20);
       }
+
+      //== mostrar o triangulo do OUT (pontos que estão fora da janela)
+      qOut=int(q.v.v-10.0*ft.v.v/dt.v.v);
+      //println("qOut=",qOut," qInit=",qInit," q.v.v=",q.v.v," ft.v.v=",ft.v.v," dt.v.v=",dt.v.v);
+      if (qOut>0){
+        //float fq=10*Q/qOut;
+        fill(nCor); noStroke();
+        //float p0Out=tela.x+tela.w-qInit*fq;
+        triangle(p0Out,p0,p0Out-10,p0+10,p0Out+10,p0+10);
+      } else {
+        //qInit=0;
+        p0Out=tela.x+tela.w;
+      }
+      
       
       //if (calcFreq.clicado) analisarCurva(); else {qPicos=0; qVales=0;}
         //tirei o analisarCurva() em 19/09/15 para por o curvaDiferencial
@@ -118,30 +137,23 @@ class Canal{
   
   
   //=== mouse pega p0 e move ===
-  void p0MousePressionou(){
+  void p0Pressionou(){
     int pini;
     int pfim;
     if (chN.clicado){
       pini=tela.x-10-10*n;
       pfim=tela.x-10*n;
-      if (mouseX>pini && mouseX<pfim && mouseY>(p0-10) && mouseY<(p0+10)){
+      if (mouseX>pini && mouseX<pfim && mouseY>(p0-10) && mouseY<(p0+10)){ 
+        // clicou no triangulo da origem (esquerdo)
         mouseOffSet=mouseY-p0;
         dP0Trigger=p0Trigger-p0;
-        
         pegouP0=true;
-      } else {
-        pini=tela.x+tela.w;
-        pfim=tela.x+tela.w+10;
-        if (mouseX>pini && mouseX<pfim && mouseY>(p0Trigger-10) && mouseY<(p0Trigger+10)){
-           mouseOffSet=mouseY-p0Trigger;
-           pegouTrigger=true;
-        }
-      }
-      
-    }
-  }
+       }
+     }   
+   }
+
   
-  void p0MouseArrastou(){
+  void p0Arrastou(){
    if (pegouP0){
       p0=constrain(mouseY,tela.y,tela.y+tela.h)-mouseOffSet; 
       p0Trigger=p0+dP0Trigger;
@@ -163,13 +175,63 @@ class Canal{
             }
         }
       }
-   } else if (pegouTrigger){
-      p0Trigger=constrain(mouseY,fy(1024),p0)-mouseOffSet; 
-      println("pegouTrigger=true  p0Trigger="+str(p0Trigger));
-     
    }
   }
 
+ //=== mouse pega triangulo p0Trigger ===
+ void  p0TriggerPressionou(){
+    int pini;
+    int pfim;
+    if (chN.clicado){
+        // clicou no triangulo do trigger (direita)
+        pini=tela.x+tela.w;
+        pfim=tela.x+tela.w+10;
+        if (mouseX>pini && mouseX<pfim && mouseY>(p0Trigger-20) && mouseY<(p0Trigger)){ 
+           mouseOffSet=mouseY-p0Trigger;
+           pegouTrigger=true;
+        }
+    }
+ }
+
+ void  p0TriggerArrastou(){
+  if (pegouTrigger){
+      p0Trigger=constrain(mouseY,fy(1024),p0)-mouseOffSet; 
+      println("pegouTrigger=true  p0Trigger="+str(p0Trigger));
+   }
+ }
+
+ //=== mouse pega triangulo p0Out ===
+ void p0OutPressionou(){
+   if (chN.clicado){
+      // clicou no triangulo do deslocamento da janela (pontos escondidos)
+      if (mouseX>p0Out-10 && mouseX<p0Out+10 && mouseY>p0 && mouseY<(p0+10)){
+        println("n=",n);
+        mouseOffSet=mouseX-p0Out;
+        pegouOut=true;
+      }
+   }
+ }
+
+ void p0OutArrastou(){
+  if (pegouOut){
+      p0Out=constrain(mouseX,tela.x,tela.x+tela.w);
+      float fq=10*Q/qOut;
+      //float p0Out=tela.x+tela.w-qInit*fq;
+      qInit=int((tela.x+tela.w-p0Out)/fq);
+      //println("pegouOut=true p0Out="+str(p0Out)," qInit=",qInit);
+      if (keyPressed && key==CODED && keyCode==SHIFT){
+            for (int k=0;k<4;k++){
+               if (k != n){
+                 //canal[k].ft.v.v=canal[n].ft.v.v;
+                 canal[k].ft.setV(ft.v.v);
+                 canal[k].qInit=qInit;
+                 // recalcular o p0Out
+                 canal[k].p0Out=p0Out;
+               }
+            }
+      }      
+   }
+ }
 
   
   void displayXt(){ // modo em função do tempo
@@ -177,8 +239,8 @@ class Canal{
     int pt0,pt1;
     stroke(nCor);strokeWeight(2); noFill();
     beginShape();
-      for (int k=0; k<q.v.v; k++){
-        px=fx(k);
+      for (int k=qInit; k<q.v.v; k++){
+        px=fx(k-qInit);
         if (px>tela.x+tela.w || px<tela.x) {
            break; 
         }
@@ -298,7 +360,7 @@ class Canal{
     vMin=(int)(2.0/3.0*(float)vMin);
     qPicos=0;
     if (vMin<0){
-      for (int k=0; k<q.v.v-1; k++){ 
+      for (int k=qInit; k<q.v.v-1; k++){ 
          if (dif[k]<=vMin){
            qPicos++;
            picos[qPicos-1]=k;
@@ -319,7 +381,7 @@ class Canal{
     }else{    // deve ser senoide (suave)
         //println(n," Senoide");
         //pMax1=-1; pMax2=-1;
-        for (int k=0; k<q.v.v-2; k++){ // pegar 2 pontos de mudança do Zero
+        for (int k=qInit; k<q.v.v-2; k++){ // pegar 2 pontos de mudança do Zero
           //println("vMax1=",vMax1," vMax2=",vMax2);
           if (dif[k]>0 && dif[k+1]<=0){ // achou + para - (pico)
             //println("entrei ",dif[k],dif[k+1]);
@@ -342,14 +404,14 @@ class Canal{
     // desenhar os fios diferenciais dif[]
     if (grafDif.clicado){
       strokeWeight(1); stroke(255);
-      for (int k=0; k<q.v.v-1;k++){
-          px=fx(k);
+      for (int k=qInit; k<q.v.v-1;k++){
+          px=fx(k-qInit);
           if (px>tela.x+tela.w || px<tela.x) { break;}
           line(px,p0,px,fy(dif[k])); 
       }
       stroke(200,0,200);
-      for (int k=0;k<qPicos;k++){
-         px=fx(picos[k]);
+      for (int k=qInit;k<qPicos;k++){
+         px=fx(picos[k-qInit]);
          if (px>tela.x+tela.w || px<tela.x){ break;}
          line(px,p0,px,fy(dif[picos[k]]));
       }
@@ -382,8 +444,8 @@ class Canal{
    if (pMin1>=0 && pMin2>=0){
       //desenhar os pMin1 e pMin2
       strokeWeight(5); stroke(255,0,255);
-      point(fx(pMin1),p0);
-      point(fx(pMin2),p0);
+      point(fx(pMin1-qInit),p0);
+      point(fx(pMin2-qInit),p0);
       strokeWeight(1);
      
      tCalc.setV(abs(pMin2-pMin1)*dt.v.v);
@@ -524,14 +586,18 @@ class Canal{
   void mousePressionou(){
     fm.mousePressionou();
     ft.mousePressionou();
-    p0MousePressionou(); //se pegar o triangulo de p0
+    p0Pressionou(); //se pegar o triangulo de p0
+    p0TriggerPressionou(); // se pegar o triangulo de p0Trigger
+    p0OutPressionou(); // se pegar o triangulo de p0Out
     telaMousePressionou();
   }
   
   void mouseArrastou(){
     fm.mouseArrastou();
     ft.mouseArrastou();
-    p0MouseArrastou(); // se arrastou o p0
+    p0Arrastou(); // se arrastou o p0
+    p0TriggerArrastou(); // se arrastou o p0Trigger
+    p0OutArrastou(); // se arrastou o p0Out
     telaMouseArrastou();
   }
   
@@ -549,6 +615,9 @@ class Canal{
         
       }
       pegouTrigger=false;
+    }
+    if (pegouOut){
+      pegouOut=false;
     }
     telaMouseSoltou();
   }
