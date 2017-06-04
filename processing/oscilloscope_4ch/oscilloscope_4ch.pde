@@ -392,6 +392,16 @@ void mouseClicked() {
       for (int k=0;k<4;k++){
         canal[k].chN.clicado=true;
       }
+      // ligar Varias
+     variasAmostras.clicado=true;
+     if (variasAmostras.clicado) {
+        port.write("vo");
+      } else {
+        port.write("vx");
+      }
+      println("Abri Serial");
+      println("variasAmostra.clicado=",variasAmostras.clicado);
+
     }
   } else if (r==-1) { //retornou -1 então fechar serial
     port.stop();
@@ -859,18 +869,19 @@ void ajustarFt() {
   =====================================*/
 void serialEvent(Serial p) {
   //if (p.available()>0) {}
+ try { 
   String cmd="", val="";
   String tex=p.readStringUntil(10);
-  print(">>>> ",tex); //eliminar
+  //print(">>>> ",tex); //eliminar
   if (tex.charAt(0)=='>') { //comando: >cmd=v1(tab)v2(tab)v3(tab)
     int i=tex.indexOf("=");
     if (i>=0) { // encontrou sinal "=" (igual)  obs: i=-1 => não encontrou o sinal '='
       cmd=tex.substring(1, i); // pegar o comando obs: substring(inclusive,exclusive)
       val=tex.substring(i+1); // pegar o valor
       //println("cmd=",cmd," val=",val);
+      
       if (cmd.equals("f")) { // entra fluxo de dados - deslocar dados e armazenar no final
         String tex2[]=splitTokens(val); //val = "0(t)dtReal(t)ch0(t)ch1(t)ch2"
-        //int vc[]=int(splitTokens(val));
         //deslocar os dados para baixo, para incluir o novo dado no final
         for (int j=0; j<4; j++) {
           for (int k=1; k<q.v.v; k++) {
@@ -883,26 +894,34 @@ void serialEvent(Serial p) {
         canal[3].v[int(q.v.v-1)]=int(tex2[5]);
         dtReal.setV(float(tex2[1]));
         if (dtReal.v-dt.v.v>1.1*dt.v.v){ dtErro=true;} else {dtErro=false;}
-        println("cmd=",cmd," val=",val," dtReal=",dtReal.printV());
+       
       } else if (cmd.equals("chq")) {       // entra qtd e quais canais serão recebidos
         int v[]=int(splitTokens(val));
-        println("========================");
-        println("cmd=",cmd," val=",val);
+ //voltar        //        println("========================");
+ //voltar        //        println("cmd=",cmd," val=",val);
         chq=v[0];
         for (int k=0;k<chq;k++){
           ch[k]=v[k+1];
         }
-        println("chs=",chq);
+ //voltar        //        println("chs=",chq);
         for (int k=0;k<chq;k++){
-           println("ch[",k,"]=",ch[k]); 
+ //voltar        //           println("ch[",k,"]=",ch[k]); 
         }
-        println("========================");
+ //voltar        //        println("========================");
       } else if (cmd.equals("v")) { // entrada de Varias Amostra
         int v[]=int(splitTokens(val));
-        println("tex=",tex);
+ //voltar        //        println("tex=",tex);
         //println("cmd=",cmd," val=",val);
-        for (int k=0; k<chq; k++){
-           canal[ch[k]].buffer[v[0]]=v[k+1]; 
+        //println("v.length=",v.length," chq=",chq);
+        //for (int k=0; k<v.length; k++){
+        //   print(" v[",k,"]=",v[k]); 
+        //}
+        //println("");
+        
+        if (v.length==chq+1){ // >v=1 1024 100 300 300
+          for (int k=0; k<chq; k++){
+             canal[ch[k]].buffer[v[0]]=v[k+1]; 
+          }
         }
  /*   
         int kk=v[0]; // indice da matriz
@@ -919,7 +938,7 @@ void serialEvent(Serial p) {
         //println("atualizou");
         tTotalReal.setV(float(val));
         //text(tTotalReal,pnlAmostra.x+2,pnlAmostra.y+pnlAmostra.h);
-        println("cmd=",cmd," val=",val," tTotalReal=",tTotalReal.printV());
+ //voltar        //        println("cmd=",cmd," val=",val," tTotalReal=",tTotalReal.printV());
         canal[0].atualizou=true;  // terminou de entrar os dados então
         canal[1].atualizou=true;  //  carregar do buffer
         canal[2].atualizou=true;
@@ -936,7 +955,7 @@ void serialEvent(Serial p) {
         dtReal.setV(float(val));
         if (dtReal.n>dt.v.n+10){ dtErro=true;} else {dtErro=false;}
         //text(dtReal,pnlAmostra.x+2,pnlAmostra.y+pnlAmostra.h-12);
-        println("cmd=",cmd," val=",val," dtReal=",dtReal.printV());
+ //voltar        //        println("cmd=",cmd," val=",val," dtReal=",dtReal.printV());
         
       } else if (cmd.equals("r") || cmd.equals("c") || cmd.equals("rc")) { // valor do resistor
         String tex2[]=splitTokens(val, "\t\r");
@@ -951,19 +970,19 @@ void serialEvent(Serial p) {
       } else if (cmd.charAt(0)=='?') {  // carregando as configurações do Arduino (ao conectar) 
         cmd=cmd.substring(2); // eliminar 2 caracteres iniciais "? comando"
         val=val.substring(0,val.length()-2); // eliminar 2 caracteres finais:  \n\r(13,10)(^M^J) (retorno de linha)        
-        println("cmd=",cmd," val=",val);
+ //voltar        //        println("cmd=",cmd," val=",val);
         if (cmd.equals("q")){ // val=100
           q.v.v=float(val);
         } else if (cmd.equals("dt")){
           char unid=val.charAt(val.length()-2);
           val=val.substring(0,val.length()-2);
-          println("unid=",unid," val=",val);
+ //voltar        //          println("unid=",unid," val=",val);
           if (unid=='u'){
             val=val+"e-6";            
           }else{
             val=val+"e-3";
           }
-          println("val=",val);
+ //voltar        //          println("val=",val);
           dt.setV(float(val));
           ajustarFt();
           
@@ -996,13 +1015,18 @@ void serialEvent(Serial p) {
         }else if (cmd.equals("pwmPon")){  // cmd="pwmPon", val="25%"
           val=val.substring(0,val.length()-1);
           tonSinal.setV(float(val));
-          println("pwmPon=",float(val));
+ //voltar        //          println("pwmPon=",float(val));
         }else {
-           print(">>>> ",tex);
+           print("else >>>> ",tex);
          }
       }
     }
     //println("cmd=",cmd);
     //println("val=",val);
   }
+ }
+ catch(RuntimeException e){
+    e.printStackTrace();
+    
+ }
 }

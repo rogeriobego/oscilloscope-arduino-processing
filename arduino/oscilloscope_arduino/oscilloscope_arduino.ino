@@ -79,7 +79,7 @@ char unidade='m'; // unidade: m=milisegundo, u=microsegundo
 //      1 canal deve dar 120us
 
 boolean varias=false; // v = varias
-boolean uma=true;    // u = uma
+boolean uma=false;    // u = uma
 boolean fluxo=false; // f = fluxo de dados (envia cada leitura sem guardar na memoria)
                       // velocidade limitada pela serial 115200
 unsigned long dtReal, tIni, tFim; // contador de final de tempo para o fluxo
@@ -207,8 +207,8 @@ void lerSerial(){
           if (k>=1 && k<=qmax) {
              q=k; 
           }
-          calcBuffer();
-//          Serial.print("=> q="); Serial.println(q);
+          //calcBuffer(); //não precisa pois será usado o qmax
+          Serial.print("=> q="); Serial.println(q);
           break;
        case 'c': //cnm : n=0-3, m=(o)ativa/(x)desativa canal n exemplo:  c0x,  c2o
           delay(100);
@@ -396,18 +396,19 @@ void calcBuffer(){
     q=qmax;
   }
   //Serial.print("q=408/chq=");Serial.print("408/");Serial.print(chq);Serial.print("=");Serial.println(q);
+  // qtdCanais-qmax (chq-qmax) (4-100) (3-130) (2-200) (1-400)
   int chInit=0;
   for (int k=0; k<4; k++){
     if (Ch[k]) {
       chi[k]=chInit;
-      chInit+=q;
+      chInit+=qmax;
     }
   }
   
-  Serial.print("chq="); Serial.print(chq); Serial.print(" q="); Serial.print(q); Serial.print(" qmax="); Serial.println(qmax);
-  for (int k=0; k<4; k++){
-     Serial.print("k=");Serial.print(k); Serial.print(" chi[k]="); Serial.println(chi[k]);
-  }
+ // Serial.print("chq="); Serial.print(chq); Serial.print(" q="); Serial.print(q); Serial.print(" qmax="); Serial.println(qmax);
+//  for (int k=0; k<4; k++){
+ //    Serial.print("k=");Serial.print(k); Serial.print(" chi[k]="); Serial.println(chi[k]);
+ // }
   
 }
 
@@ -593,12 +594,13 @@ void lerEnviar(){
     if (Ch[3]) {Serial.print(vb[chi[3]+k]); Serial.print("\t");}
     Serial.println("");
 
+  /* 
     if (Ch[0]) {Serial.print(chi[0]+k); Serial.print("\t");}
     if (Ch[1]) {Serial.print(chi[1]+k); Serial.print("\t");}
     if (Ch[2]) {Serial.print(chi[2]+k); Serial.print("\t");}
     if (Ch[3]) {Serial.print(chi[3]+k); Serial.print("\t");}
     Serial.println("");
-
+  */
   }
  /* -- eliminado em 07/May/2017 - criei buffer dinamico  vb[408] --   
   for (int k=0; k<q; k++){
@@ -645,10 +647,10 @@ void lerFluxo(){
         Serial.print("e-6");
       }
       Serial.print("\t");
-    Serial.print(v0); Serial.print("\t");
-    Serial.print(v1); Serial.print("\t");
-    Serial.print(v2); Serial.print("\t");
-    Serial.println(v3);
+    if (Ch[0]) {Serial.print(v0);} else {Serial.print("0");} Serial.print("\t");
+    if (Ch[1]) {Serial.print(v1);} else {Serial.print("0");} Serial.print("\t");
+    if (Ch[2]) {Serial.print(v2);} else {Serial.print("0");} Serial.print("\t");
+    if (Ch[3]) {Serial.println(v3);} else {Serial.println("0");}
   }
 }
 
