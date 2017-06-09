@@ -1,5 +1,6 @@
 // rogerio.bego@hotmail.com
-String versao="1.2";
+String versao="1.2.1";
+// 09/06/2017 - v1.2.1 - Save data in the file "datayyyymmddhhmmss.txt" - Requested by Carlos Corela
 // 29/01/2017 - v1.2 coloquei um valor para o trigger 0-1024 (0-5v)
 //               transmitir  tv512.  (512=2.5v)
 // 15/10/2015 - acrescentei mais um canal - 4canais
@@ -21,6 +22,18 @@ int vTrigger=0; // valor do trigger (subindo) 0-1024 (0-5v)
 color cor[]={color(255, 0, 0), color(0, 255, 0), color(0, 0, 255), color(255,255,0)}; // canais: red,green,blue,yellow
 
 import processing.serial.*;
+
+/*
+ 08-Jun-2017 - output file "dados.txt" when click button
+  t (ms)<tab>ch0 (mV)<tab>ch1 (mV)
+  0<tab>1215<tab>123
+  1<tab>2123<tab>2
+  2<tab>2350<tab>350
+*/
+PrintWriter output;
+Botao save;
+int qSave=0;
+
 
 // configuração dos objetos
 Serial port;
@@ -128,6 +141,10 @@ void setup() {
   grafDif=new CheckBox("ver",calcFreq.x+calcFreq.w,calcFreq.y,15);
   //ruido=new Dial(escLinear, altMove, !nInt, fmt, "ruido", "V", 0, 0, 2, calcFreq.x+20, calcFreq.y+17, 100, 20);
 
+  // 08-jun-2017 - button to save data  in data.txt
+  save=new Botao("salvar datax.txt",calcFreq.x,calcFreq.y+calcFreq.h+5,150,20);
+  
+  
   //medidor de resistor/capacitor
   pnlRC=new Painel("", tela.x, tela.y+tela.h+10, 125, 40);
   RC=new CheckBox("medir res./cap.", pnlRC.x, pnlRC.y, 15);
@@ -190,6 +207,7 @@ void draw() {
   calcFreq.display();
   grafDif.display();
   //ruido.display();
+  save.display();
   com.display();
   resetEixos.display();
   resetMedir.display();
@@ -523,6 +541,37 @@ void mouseClicked() {
   verPontos.mouseClicado();
   calcFreq.mouseClicado();
   grafDif.mouseClicado();
+  
+  if (save.mouseClicado()){
+        //08-Jun-2017 write data to file
+        
+        String fileName ="data"+nf(year(),4)+nf(month(),2)+nf(day(),2)+nf(hour(),2)+nf(minute(),2)+nf(second(),2)+".txt";
+        output=createWriter(fileName);
+        // cabeçalho
+        output.print("dt(");output.print(dt.v.printV());output.print(dt.unidade);output.print(")");
+        for (int k=0; k<4; k++){
+           if (canal[k].chN.clicado){
+             output.print('\t');output.print("ch");output.print(k);output.print("(mV)");
+           }
+        }
+        output.println();
+        // dados
+        float f=5000.0/1023.0;
+        for (int k2=0; k2<q.v.v;k2++){
+          output.print(k2);
+          for (int k=0; k<4; k++) {
+            if (canal[k].chN.clicado){
+              output.print('\t');output.print(int(canal[k].v[k2]*f));
+            }
+          }
+          output.println();
+        }
+        output.close();
+        qSave+=1;
+        if (qSave>10) {qSave=1;}
+        save.tex="salvar datax.txt" + "-"+qSave;
+        save.clicado=false;
+  }
   //ruido.mouseClicado();
 
   //se clicou em dt ou q então enviar comando para garagino e ajustar tela
