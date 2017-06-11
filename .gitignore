@@ -4,3 +4,4 @@ application.linux-armv6hf/
 application.linux32/
 application.windows64/
 application.windows32/
+data*.txt
