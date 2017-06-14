@@ -1,5 +1,6 @@
 // rogerio.bego@hotmail.com
-String versao="1.2.1";
+String versao="1.2.2";
+// 14/06/2017 - v1.2.2 - save data modo "fluxo" - press button to start, press again to stop
 // 09/06/2017 - v1.2.1 - Save data in the file "datayyyymmddhhmmss.txt" - Requested by Carlos Corela
 // 29/01/2017 - v1.2 coloquei um valor para o trigger 0-1024 (0-5v)
 //               transmitir  tv512.  (512=2.5v)
@@ -31,6 +32,7 @@ import processing.serial.*;
   2<tab>2350<tab>350
 */
 PrintWriter output;
+boolean outputOpen=false;
 Botao save;
 int qSave=0;
 
@@ -542,35 +544,68 @@ void mouseClicked() {
   calcFreq.mouseClicado();
   grafDif.mouseClicado();
   
+  //08-Jun-2017 write data to file
   if (save.mouseClicado()){
-        //08-Jun-2017 write data to file
-        
-        String fileName ="data"+nf(year(),4)+nf(month(),2)+nf(day(),2)+nf(hour(),2)+nf(minute(),2)+nf(second(),2)+".txt";
-        output=createWriter(fileName);
-        // cabeçalho
-        output.print("dt(");output.print(dt.v.printV());output.print(dt.unidade);output.print(")");
-        for (int k=0; k<4; k++){
-           if (canal[k].chN.clicado){
-             output.print('\t');output.print("ch");output.print(k);output.print("(mV)");
-           }
-        }
-        output.println();
-        // dados
-        float f=5000.0/1023.0;
-        for (int k2=0; k2<q.v.v;k2++){
-          output.print(k2);
-          for (int k=0; k<4; k++) {
-            if (canal[k].chN.clicado){
-              output.print('\t');output.print(int(canal[k].v[k2]*f));
+        // 14-Jun-2017 save fluxo or save memory
+        println("fluxoContinuo.clicado=",fluxoContinuo.clicado);
+        if (fluxoContinuo.clicado){
+          if (outputOpen==false){ // não está gravando, então iniciar a gravação
+            println("outputOpen==false => ",outputOpen);
+            String fileName ="dataf"+nf(year(),4)+nf(month(),2)+nf(day(),2)+nf(hour(),2)+nf(minute(),2)+nf(second(),2)+".txt";
+            output=createWriter(fileName);
+            outputOpen=true;
+            save.tex="salvando";
+            // cabeçalho
+            output.println("BegOscopio v"+versao+" "+nf(year())+"-"+nf(month())+"-"+nf(day())+" "+nf(hour())+":"+nf(minute())+":"+nf(second()));
+            output.print("dt(");output.print(dt.v.printV());output.print(dt.unidade);output.print(")");
+            for (int k=0; k<4; k++){
+               if (canal[k].chN.clicado){
+                 output.print('\t');output.print("ch");output.print(k);output.print("(mV)");
+               }
             }
+            output.println();
+            qSave=0;
+            // ao entrar cada dado no fluxo gravar em output.print()
+            // gravar na rotina de entrada
+          } else { // save já está gravando, então parar a gravação
+            println("outputOpen==true => ",outputOpen);
+            output.close();
+            outputOpen=false;
+            qSave=1;
+            if (qSave>10) {qSave=1;}
+            save.tex="salvar datax.txt" + "-"+qSave;
+            save.clicado=false;
+          }
+        } else {
+          String fileName ="data"+nf(year(),4)+nf(month(),2)+nf(day(),2)+nf(hour(),2)+nf(minute(),2)+nf(second(),2)+".txt";
+          output=createWriter(fileName);
+          // cabeçalho
+          output.println("BegOscopio v"+versao+" "+nf(year())+"-"+nf(month())+"-"+nf(day())+" "+nf(hour())+":"+nf(minute())+":"+nf(second()));
+          output.print("dt(");output.print(dt.v.printV());output.print(dt.unidade);output.print(")");
+          for (int k=0; k<4; k++){
+             if (canal[k].chN.clicado){
+               output.print('\t');output.print("ch");output.print(k);output.print("(mV)");
+             }
           }
           output.println();
+          // dados
+          float f=5000.0/1023.0;
+          for (int k2=0; k2<q.v.v;k2++){
+            output.print(k2);
+            for (int k=0; k<4; k++) {
+              if (canal[k].chN.clicado){
+                output.print('\t');output.print(int(canal[k].v[k2]*f));
+              }
+            }
+            output.println();
+          }
+          
+          output.close();
+          qSave+=1;
+          if (qSave>10) {qSave=1;}
+          save.tex="salvar datax.txt" + "-"+qSave;
+          save.clicado=false;
         }
-        output.close();
-        qSave+=1;
-        if (qSave>10) {qSave=1;}
-        save.tex="salvar datax.txt" + "-"+qSave;
-        save.clicado=false;
   }
   //ruido.mouseClicado();
 
@@ -600,6 +635,9 @@ void mouseClicked() {
   if (umaAmostra.mouseClicado()) { // receber apenas Uma Amostra
     variasAmostras.clicado=false;
     fluxoContinuo.clicado=false;
+    if (outputOpen) {
+      fecharDados();
+    }
     if (com.conectado) {
       port.write("1"); 
     }
@@ -613,7 +651,7 @@ void mouseClicked() {
          break; 
       }
     }
-    println("k2=",k2);
+   // println("k2=",k2);
     
     if (k2>=0 && k2<=3){
        pnlAmostra.piscar=true;
@@ -627,6 +665,9 @@ void mouseClicked() {
   if (variasAmostras.mouseClicado()) {
     umaAmostra.clicado=false;
     fluxoContinuo.clicado=false;
+    if (outputOpen) {
+      fecharDados();
+    }
     if (com.conectado) {
       if (variasAmostras.clicado) {
         port.write("vo");
@@ -646,6 +687,9 @@ void mouseClicked() {
         
       } else {
         port.write("fx");
+        if (outputOpen){
+          fecharDados();
+        }
       }
     } else {
       fluxoContinuo.clicado=false;
@@ -808,6 +852,13 @@ void mouseDragged() {
   //}
 }
 
+void fecharDados(){
+      output.close();  
+      outputOpen=false;
+      if (qSave>10) {qSave=1;}
+      save.tex="salvar datax.txt" + "-"+qSave;
+      save.clicado=false;
+}
 
 /* ==========================================
      Comando enviados para o Garagino 
@@ -879,7 +930,28 @@ void serialEvent(Serial p) {
         canal[3].v[int(q.v.v-1)]=int(tex2[5]);
         dtReal.setV(float(tex2[1]));
         if (dtReal.v-dt.v.v>1.1*dt.v.v){ dtErro=true;} else {dtErro=false;}
-        println("cmd=",cmd," val=",val," dtReal=",dtReal.printV());
+
+        // salvar em arquivo
+        if (outputOpen) {
+          float f=5000.0/1023.0;
+          //for (int k2=0; k2<q.v.v;k2++){
+            int k2=int(q.v.v-1);
+            output.print(qSave);
+            qSave+=1;
+            for (int k=0; k<4; k++) {
+              if (canal[k].chN.clicado){
+                output.print('\t');output.print(int(canal[k].v[k2]*f));
+              }
+            }
+            output.println();
+            if (qSave % 100==0) { // de 100 em 100
+              save.tex="salvando "+nf(qSave);
+              output.flush();
+            }
+          //}
+        }
+
+        //println("cmd=",cmd," val=",val," dtReal=",dtReal.printV());
       } else if (cmd.equals("v")) { // entrada de Varias Amostra
         int v[]=int(splitTokens(val));
         //println("v.length=",v.length);
@@ -896,7 +968,7 @@ void serialEvent(Serial p) {
         //println("atualizou");
         tTotalReal.setV(float(val));
         //text(tTotalReal,pnlAmostra.x+2,pnlAmostra.y+pnlAmostra.h);
-        println("cmd=",cmd," val=",val," tTotalReal=",tTotalReal.printV());
+        //println("cmd=",cmd," val=",val," tTotalReal=",tTotalReal.printV());
         canal[0].atualizou=true;  // terminou de entrar os dados então
         canal[1].atualizou=true;  //  carregar do buffer
         canal[2].atualizou=true;
@@ -913,7 +985,7 @@ void serialEvent(Serial p) {
         dtReal.setV(float(val));
         if (dtReal.n>dt.v.n+10){ dtErro=true;} else {dtErro=false;}
         //text(dtReal,pnlAmostra.x+2,pnlAmostra.y+pnlAmostra.h-12);
-        println("cmd=",cmd," val=",val," dtReal=",dtReal.printV());
+        //println("cmd=",cmd," val=",val," dtReal=",dtReal.printV());
         
       } else if (cmd.equals("r") || cmd.equals("c") || cmd.equals("rc")) { // valor do resistor
         String tex2[]=splitTokens(val, "\t\r");
@@ -928,19 +1000,19 @@ void serialEvent(Serial p) {
       } else if (cmd.charAt(0)=='?') {  // carregando as configurações do Garagino (ao conectar) 
         cmd=cmd.substring(2); // eliminar 2 caracteres iniciais "? comando"
         val=val.substring(0,val.length()-2); // eliminar 2 caracteres finais:  \n\r(13,10)(^M^J) (retorno de linha)        
-        println("cmd=",cmd," val=",val);
+        //println("cmd=",cmd," val=",val);
         if (cmd.equals("q")){ // val=100
           q.v.v=float(val);
         } else if (cmd.equals("dt")){
           char unid=val.charAt(val.length()-2);
           val=val.substring(0,val.length()-2);
-          println("unid=",unid," val=",val);
+         // println("unid=",unid," val=",val);
           if (unid=='u'){
             val=val+"e-6";            
           }else{
             val=val+"e-3";
           }
-          println("val=",val);
+          //println("val=",val);
           dt.setV(float(val));
           ajustarFt();
           
@@ -973,7 +1045,7 @@ void serialEvent(Serial p) {
         }else if (cmd.equals("pwmPon")){  // cmd="pwmPon", val="25%"
           val=val.substring(0,val.length()-1);
           tonSinal.setV(float(val));
-          println("pwmPon=",float(val));
+          //println("pwmPon=",float(val));
         }
       }
     }
