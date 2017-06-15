@@ -88,7 +88,7 @@ void setup() {
   marg1=tela.x+tela.w+10; 
   marg2=marg1+200;
   
-  com=new Com(port, tela.x+tela.w-175, tela.y-30, 175, 20);
+  com=new Com(port, tela.x+tela.w-250, tela.y-39, 250, 18);
 
   //XYZ=new Botao("XYZ", marg2, tela.y, 45, 20);
   //XYZy=tela.y+5*Q;
