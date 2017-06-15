@@ -1,6 +1,6 @@
 class Com{
    Serial port;
-   String ports[]=append(Serial.list(),"Serial");
+   String ports[]=Serial.list();
    String portName;
    int indPort=ports.length-1;
    //String speed="115200";
@@ -32,11 +32,15 @@ class Com{
         cor=color(200);
       //  fill(200);
      }
-     fill(cor); rect(x,y-20,11*u,20);
-     rect(x,y,u,h); rect(x+u,y,4*u,h); rect(x+5*u,y,4*u,h); rect(x+9*u,y,2*u,h);  
-     fill(0);textAlign(CENTER,CENTER); text("Configurar a Serial",x+w/2,y-12);
+     fill(cor); rect(x,y-h,11*u,h);
+     fill(0); textAlign(CENTER,CENTER); text("Configurar a Serial",x+w/2,y-10);
+     
      //text("*",x+u/2,y+h/2); text(ports[indPort],x+3*u,y+h/2); text(speeds[indSpeed],x+7*u,y+h/2); 
-     text("*",x+u/2,y+h/2); text(ports[indPort],x+3*u,y+h/2); text(speeds[indSpeed],x+7*u,y+h/2); 
+     fill(cor); stroke(0); rect(x,y-h+2*h,11*u,h);
+     textAlign(LEFT,CENTER);fill(0); text(ports[indPort],x+u/4,y+1.4*h);
+     
+     fill(cor); stroke(0,0,255); rect(x,y,u,h); rect(x+u,y,4*u,h); rect(x+5*u,y,4*u,h); rect(x+9*u,y,2*u,h);
+     fill(0); textAlign(CENTER,CENTER); text("*",x+u/2,y+h/2); text("Serial",x+3*u,y+h/2-2); text(speeds[indSpeed],x+7*u,y+h/2-2); 
      if (conectado) tex="on"; else tex="off";
      text(tex,x+10*u,y+h/2);//9*u,y+h/2);
    }
@@ -61,7 +65,7 @@ class Com{
      if (mouseY>y && mouseY<y+h){
        if (mouseX>x && mouseX<x+u) { // recarregar a lista das COMs
          if (!conectado) {
-            ports=append(Serial.list(),"Serial");
+            //ports=append(Serial.list(),"Serial");
             indPort=ports.length-1;
          }
        } else if (mouseX>x+u && mouseX<x+5*u) { // mudar porta serial
