@@ -14,6 +14,8 @@ I used the programming language "Processing" (www.processing.org) to create the 
 
 See a [demo] (https://www.youtube.com/watch?v=aw_kyDAiNak) on youtube.
 
+Make one by yourself following the step-by-step on the [Instructables](http://www.instructables.com/id/Oscilloscope-Arduino-Processing/) website.
+
 
 ### Oscilloscope Capabilities
 
