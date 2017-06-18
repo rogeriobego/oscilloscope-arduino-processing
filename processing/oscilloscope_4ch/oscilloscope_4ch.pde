@@ -1,5 +1,6 @@
 // rogerio.bego@hotmail.com
 String versao="1.2.2";
+// 17/06/2017 - v1.2.2 - changed class Com to show Mac serial port long names - Requested by Roman Random (created TextBox class)
 // 14/06/2017 - v1.2.2 - save data modo "fluxo" - press button to start, press again to stop
 // 09/06/2017 - v1.2.1 - Save data in the file "datayyyymmddhhmmss.txt" - Requested by Carlos Corela
 // 29/01/2017 - v1.2 coloquei um valor para o trigger 0-1024 (0-5v)
@@ -103,7 +104,10 @@ void setup() {
   marg1=tela.x+tela.w+10; 
   marg2=marg1+200;
   
-  com=new Com(port, tela.x+tela.w-175, tela.y-30, 175, 20);
+  //16-Jun-2017 serial port names are too long in Mac - Roman Random
+  com=new Com(port, tela.x+tela.w-250, 5, 250, 55);
+  //com=new Com(port, tela.x+tela.w-175, tela.y-30, 175, 20);
+  
 
   //XYZ=new Botao("XYZ", marg2, tela.y, 45, 20);
   //XYZy=tela.y+5*Q;
@@ -178,7 +182,7 @@ void draw() {
   background(100);
   fill(0, 255, 255); 
   textAlign(LEFT, TOP);
-  textSize(24); 
+  textSize(18); 
   text("BegOscopio "+versao, tela.x, 12);
   fill(0); 
   textSize(12); 
@@ -547,16 +551,16 @@ void mouseClicked() {
   //08-Jun-2017 write data to file
   if (save.mouseClicado()){
         // 14-Jun-2017 save fluxo or save memory
-        println("fluxoContinuo.clicado=",fluxoContinuo.clicado);
+        //println("fluxoContinuo.clicado=",fluxoContinuo.clicado);
         if (fluxoContinuo.clicado){
           if (outputOpen==false){ // não está gravando, então iniciar a gravação
-            println("outputOpen==false => ",outputOpen);
+            //println("outputOpen==false => ",outputOpen);
             String fileName ="dataf"+nf(year(),4)+nf(month(),2)+nf(day(),2)+nf(hour(),2)+nf(minute(),2)+nf(second(),2)+".txt";
             output=createWriter(fileName);
             outputOpen=true;
             save.tex="salvando";
             // cabeçalho
-            output.println("BegOscopio v"+versao+" "+nf(year())+"-"+nf(month())+"-"+nf(day())+" "+nf(hour())+":"+nf(minute())+":"+nf(second()));
+            //output.println("BegOscopio v"+versao+" "+nf(year())+"-"+nf(month())+"-"+nf(day())+" "+nf(hour())+":"+nf(minute())+":"+nf(second()));
             output.print("dt(");output.print(dt.v.printV());output.print(dt.unidade);output.print(")");
             for (int k=0; k<4; k++){
                if (canal[k].chN.clicado){
@@ -568,7 +572,7 @@ void mouseClicked() {
             // ao entrar cada dado no fluxo gravar em output.print()
             // gravar na rotina de entrada
           } else { // save já está gravando, então parar a gravação
-            println("outputOpen==true => ",outputOpen);
+            //println("outputOpen==true => ",outputOpen);
             output.close();
             outputOpen=false;
             qSave=1;
@@ -580,7 +584,7 @@ void mouseClicked() {
           String fileName ="data"+nf(year(),4)+nf(month(),2)+nf(day(),2)+nf(hour(),2)+nf(minute(),2)+nf(second(),2)+".txt";
           output=createWriter(fileName);
           // cabeçalho
-          output.println("BegOscopio v"+versao+" "+nf(year())+"-"+nf(month())+"-"+nf(day())+" "+nf(hour())+":"+nf(minute())+":"+nf(second()));
+          //output.println("BegOscopio v"+versao+" "+nf(year())+"-"+nf(month())+"-"+nf(day())+" "+nf(hour())+":"+nf(minute())+":"+nf(second()));
           output.print("dt(");output.print(dt.v.printV());output.print(dt.unidade);output.print(")");
           for (int k=0; k<4; k++){
              if (canal[k].chN.clicado){
