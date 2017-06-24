@@ -6,7 +6,7 @@
 // 03/08/2016 => versão 1.2 => ler resistor em A5
 // 26/07/2015 => versão 1.1 => ler em microsegundos
 //String versao="1.2"; // versão do programa - 
-#define versao "1.5"
+#define versao "v1.5"
 
 /* trabalhando com TimerOne
   Timer1.initializa(us);  // inicializa o timer1 (chamar primeiro)
@@ -137,8 +137,10 @@ void setup() {
   //Serial.begin(9600);
   Serial.begin(115200);
   //Serial.begin(250000);
-  printHelp();
-  printConfig();  
+  Serial.println();
+  Serial.print(">init="); Serial.println(versao);
+  //printHelp();
+  //printConfig();  
 
   //ler Resistor e Capacitor
   //pinMode(pinCarga,OUTPUT);
@@ -414,7 +416,7 @@ void calcBuffer(){
 
 void printHelp(){
    Serial.println("-----------------------");
-   Serial.print("! BegOscopio v"); Serial.print(versao); Serial.println(" - rogerio.bego@hotmail.com !");
+   Serial.print("! BegOscopio "); Serial.print(versao); Serial.println(" - rogerio.bego@hotmail.com !");
    Serial.println("-----------------------");
 /*
    Serial.println("----------- help ---------------------");

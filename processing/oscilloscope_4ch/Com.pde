@@ -10,7 +10,7 @@ class Com{
    int indSpeed=speeds.length-1;
    int p=-1;
    int x,y,w,h,dh; 
-   TextBox title, onOff, selectSerial, selectSpeed, refresh;
+   TextBox title, refresh, selectSerial, versionArduino, selectSpeed, onOff;
    boolean conectado=false;
    boolean erro=false;
    color cor=color(0);
@@ -21,12 +21,15 @@ class Com{
    Com(Serial portt,int xt, int yt, int wt, int ht){
       x=xt; y=yt; w=wt; h=ht;
       dh=h/3;
+      // line 1
       title= new TextBox("Configurar Serial",CENTER,x,y,int(0.7*w),dh);
       refresh=new TextBox("refresh",CENTER,int(x+0.7*w),y,int(0.3*w),dh);
-      //refresh=new TextBox("refresh",CENTER,int(x+0.6*w),y+2*h/3,int(0.4*w),dh);
+      //line 2
       selectSerial=new TextBox("select serial",CENTER,x,y+h/3,w,dh);
-      selectSpeed=new TextBox("select speed",CENTER,x,y+2*h/3,int(0.7*w),dh);
-      onOff=new TextBox("off",CENTER,int(x+0.7*w),y+2*h/3,int(0.3*w),dh);
+      //line 3
+      selectSpeed=new TextBox("select speed",CENTER,x,y+2*h/3,int(0.4*w),dh);
+      versionArduino=new TextBox("",CENTER,int(x+0.4*w),int(y+2*h/3),int(0.4*w),dh);
+      onOff=new TextBox("off",CENTER,int(x+0.8*w),y+2*h/3,int(0.2*w),dh);
       //onOff=new TextBox("off",CENTER,int(x+0.7*w),y,int(0.3*w),dh);
  } 
    void display(){
@@ -44,10 +47,11 @@ class Com{
      }
      //fill(cor);
      title.display(cor);
-     onOff.display(cor);
+     refresh.display(cor);
      selectSerial.display(cor);
      selectSpeed.display(cor);
-     refresh.display(cor);
+     versionArduino.display(cor);
+     onOff.display(cor);
      /*
      rect(x,y-20,11*u,20);
      rect(x,y,u,h); rect(x+u,y,4*u,h); rect(x+5*u,y,4*u,h); rect(x+9*u,y,2*u,h);  
@@ -89,6 +93,7 @@ class Com{
             selectSerial.tex=ports[indPort];
             indSpeed=1;
             selectSpeed.tex=speeds[indSpeed];
+            versionArduino.tex="";
          }
        } else if (selectSerial.mouseClicado()) { // mudar porta serial
          //println("Com=mouseClicado");

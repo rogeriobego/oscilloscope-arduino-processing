@@ -1,5 +1,5 @@
 // rogerio.bego@hotmail.com
-String versao="1.3";
+String versao="v1.3";
 // 22/05/2017 => v1.3 dynamic buffer - 1ch=400pt/ch, 2chs=200pt/ch, 3chs=130pt/ch, 4chs=100pt/ch
 // 28/05/2017 => bug v1.3  => tenho 1 canal ativo, qdo ativo outro canal dá erro na serial (disabling serialEvent())
 // 14/05/2017 - BegOscopio v1.3 
@@ -408,12 +408,16 @@ void mouseClicked() {
       com.erro=true;
     }
     
-    if (com.conectado){ // if connected start default values
+    if (com.conectado){      // if connected start default values
+      /*
       //initProgram();
+      println("init delay 5000");
+      delay(5000);
+      println("end delay 5000");
       for (int k=0;k<4;k++){
         canal[k].chN.clicado=true;
       }
-      // ligar Varias
+      // ligar uma amostra
      variasAmostras.clicado=true;
      if (variasAmostras.clicado) {
         port.write("vo");
@@ -422,12 +426,13 @@ void mouseClicked() {
       }
       println("Abri Serial");
       println("variasAmostra.clicado=",variasAmostras.clicado);
-
+      */
     }
     
   } else if (r==-1) { //retornou -1 então fechar serial
     port.stop();
     com.conectado=false;
+    com.versionArduino.tex="";
     com.erro=false;
   }
 
@@ -963,7 +968,7 @@ void enviarQ() {
 
 void ajustarFt() {
   float ftNew=dt.v.getV()*q.v.getV()/10.0;
-  //println("ftNew=",ftNew," dt=",dt.v.getV()," q=",q.v.getV());
+  println("ftNew=",ftNew," dt=",dt.v.getV()," q=",q.v.getV());
   for (int k=0; k<4; k++) {
     canal[k].ft.setV(ftNew);
   }
@@ -984,8 +989,29 @@ void serialEvent(Serial p) {
       cmd=tex.substring(1, i); // pegar o comando obs: substring(inclusive,exclusive)
       val=tex.substring(i+1); // pegar o valor
       //println("cmd=",cmd," val=",val);
-      
-      if (cmd.equals("f")) { // entra fluxo de dados - deslocar dados e armazenar no final
+      if (cmd.equals("init")) { // init
+        println("versionArduino=<",val,">");
+        com.versionArduino.tex="arduino "+val.substring(0,val.length()-1);
+        for (int k=0;k<4;k++){
+          canal[k].chN.clicado=true;
+        }
+        // ligar varias amostra
+       variasAmostras.clicado=true;
+       port.write("vo");
+       // enviar dt
+        enviarDt();
+       // enviar q
+        enviarQ();
+       
+       //if (variasAmostras.clicado) {
+       //   port.write("vo");
+       // } else {
+       //   port.write("vx");
+       // }
+        println("Abri Serial");
+        println("variasAmostra.clicado=",variasAmostras.clicado);
+        
+      } else if (cmd.equals("f")) { // entra fluxo de dados - deslocar dados e armazenar no final
         String tex2[]=splitTokens(val); //val = "0(t)dtReal(t)ch0(t)ch1(t)ch2"
         //deslocar os dados para baixo, para incluir o novo dado no final
         for (int j=0; j<4; j++) {
@@ -1122,7 +1148,7 @@ void serialEvent(Serial p) {
         } else if (cmd.equals("uma")){ // val= 0 ou 1
           //umaAmostra.clicado=boolean(int(val));
         }else if (cmd.equals("varias")){ // val= 0 ou 1
-          variasAmostras.clicado=boolean(int(val));
+          //variasAmostras.clicado=boolean(int(val));
         }else if (cmd.equals("fluxo")){ // val= 0 ou 1
           fluxoContinuo.clicado=boolean(int(val));
         }else if (cmd.equals("lerRC")){ // val= 0 ou 1
