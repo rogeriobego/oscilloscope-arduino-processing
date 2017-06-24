@@ -1,5 +1,7 @@
 // rogerio.bego@hotmail.com
 String versao="v1.3";
+// 24/06/2017 => when start serial communication, processing send initial commands to arduino in eventserial
+// 24/06/2017 => dynamic buffer bug fixed - qInit was not returning to 0 when q changed
 // 22/05/2017 => v1.3 dynamic buffer - 1ch=400pt/ch, 2chs=200pt/ch, 3chs=130pt/ch, 4chs=100pt/ch
 // 28/05/2017 => bug v1.3  => tenho 1 canal ativo, qdo ativo outro canal dá erro na serial (disabling serialEvent())
 // 14/05/2017 - BegOscopio v1.3 
@@ -408,7 +410,7 @@ void mouseClicked() {
       com.erro=true;
     }
     
-    if (com.conectado){      // if connected start default values
+    if (com.conectado){      // start default was placed when eventSerial receives >init=v1.5
       /*
       //initProgram();
       println("init delay 5000");
@@ -991,7 +993,7 @@ void serialEvent(Serial p) {
       //println("cmd=",cmd," val=",val);
       if (cmd.equals("init")) { // init
         println("versionArduino=<",val,">");
-        com.versionArduino.tex="arduino "+val.substring(0,val.length()-1);
+        com.versionArduino.tex=".ino "+val.substring(0,val.length()-1);
         for (int k=0;k<4;k++){
           canal[k].chN.clicado=true;
         }
@@ -1002,6 +1004,8 @@ void serialEvent(Serial p) {
         enviarDt();
        // enviar q
         enviarQ();
+        enviarCmd("tSinal");
+        enviarCmd("tonSinal");
        
        //if (variasAmostras.clicado) {
        //   port.write("vo");
