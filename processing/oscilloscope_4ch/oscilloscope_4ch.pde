@@ -1003,6 +1003,7 @@ void serialEvent(Serial p) {
        // enviar dt
         enviarDt();
        // enviar q
+       verificarQ();
         enviarQ();
         enviarCmd("tSinal");
         enviarCmd("tonSinal");
