@@ -1,10 +1,12 @@
+// 28/05/2017 => bug v1.5 => qdo aumenta 1 canal dá erro na serial (disabling serial)
+// 22/05/2017 => versão 1.5 => dynamic buffer - 1ch=400pt/ch, 2chs=200pt/ch, 3chs=130pt/ch, 4chs=100pt/ch
 // 21/01/2017 => versão 1.4 => melhorar o trigger: informar valor e sentido (subindo/descendo)
 // 13/03/2016 => versão 1.3 =>  alterar o clock do ADC para ler maiores frequencias 
 // 14/09/2015 => implementei TimerOne.h pin9(pwm) e pino10(2*periodo) output
 // 03/08/2016 => versão 1.2 => ler resistor em A5
 // 26/07/2015 => versão 1.1 => ler em microsegundos
 //String versao="1.2"; // versão do programa - 
-#define versao "1.4"
+#define versao "v1.5"
 
 /* trabalhando com TimerOne
   Timer1.initializa(us);  // inicializa o timer1 (chamar primeiro)
@@ -40,16 +42,34 @@ boolean  pwmOn=true;
 unsigned long pwmP=100000; //Periodo 100000u=100m=0.1s => 10Hz
 byte pwmPon=25; // % do pwmP em HIGH
 
-byte q=100; // quantidade de leituras
+/* -- 07/May/2017 --
 int v0[100];
 int v1[100];
 int v2[100]; // guarda os valores das leituras
 int v3[100]; // acrescentei mais um canal em 15/10/2015
-int vtrigger=0; // tenssao de trigger
-//byte v0[100];
-//byte v1[100];
-//byte v2[100]; // guarda os valores das leituras
-//byte v3[100]; // acrescentei mais um canal em 15/10/2015
+*/
+/* ------------------------------------------------
+/* I changed the 4 buffers (v0[100],v1[],v2[],v3[]) above 
+ *  by 1 buffer bellow (vb[408])
+ *  The chq indicates how many channels will use and the buffer
+ *  will be divided by then:
+ *  4 ch (q=102) => 0-101, 102-203, 204-305, 306-407
+ *  3 ch (q=136) => 0-135, 136-271, 272-407
+ *  2 ch (q=204) => 0-203, 204-407
+ *  1 ch (q=408) => 0-407
+ *  chi[n] indicates the initial position of the buffer
+ *  q indicates the size of channel buffer
+   ------------------------------------------------
+   */
+int vb[400]; // (100*4=400) buffer stores the measure values of all channels
+// (old) int chi[]={0,102,204,306}; // channel init position on buffer vb[]
+int chi[]={0,100,200,300}; // channel init position on buffer vb[]
+int chq=4; // how many channels are ON
+int q=100; // quantidade de leituras
+int qmax=100; // qtd maxima permitida para q
+              // (new)  chq-qmax; 4-100; 3-130; 2-200; 1-400
+              // (old)  chq-qmax; 4-102; 3-136; 2-204; 1-408
+int vtrigger=0; // tensao de trigger
 boolean Ch[]={true,true,true,true}; // ativa/desativa canais
 unsigned int dt=4; // 100us a 1000us(1ms) a 3000ms(3s)
 char unidade='m'; // unidade: m=milisegundo, u=microsegundo
@@ -59,7 +79,7 @@ char unidade='m'; // unidade: m=milisegundo, u=microsegundo
 //      1 canal deve dar 120us
 
 boolean varias=false; // v = varias
-boolean uma=true;    // u = uma
+boolean uma=false;    // u = uma
 boolean fluxo=false; // f = fluxo de dados (envia cada leitura sem guardar na memoria)
                       // velocidade limitada pela serial 115200
 unsigned long dtReal, tIni, tFim; // contador de final de tempo para o fluxo
@@ -103,6 +123,10 @@ void setup() {
   //Timer1.stop();
 
   //inicializar A0, A1, A2, A3 com pull_up
+  // não ficou bom pois qdo não tem nada conectado na porta, ela fica
+  // com 5v. O melhor é colocar um pull_down com resistor
+  //  A0___|R=20k|___GND
+  //     |__ Vinput
   /*
    * pinMode(A0,INPUT_PULLUP);
    * pinMode(A1,INPUT_PULLUP);
@@ -113,8 +137,10 @@ void setup() {
   //Serial.begin(9600);
   Serial.begin(115200);
   //Serial.begin(250000);
-  printHelp();
-  printConfig();
+  Serial.println();
+  Serial.print(">init="); Serial.println(versao);
+  //printHelp();
+  //printConfig();  
 
   //ler Resistor e Capacitor
   //pinMode(pinCarga,OUTPUT);
@@ -180,12 +206,13 @@ void lerSerial(){
        case 'q': // alterar valor do q.(ponto no final) (quantidade de leituras)
           k=Serial.parseInt(); // inteiro de 0 a 32767
           c=Serial.read(); // para ir mais rápido colocar um . no final ex: q150.
-          if (k>=1 && k<=100) {
+          if (k>=1 && k<=qmax) {
              q=k; 
           }
-//          Serial.print("=> q="); Serial.println(q);
+          //calcBuffer(); //não precisa pois será usado o qmax
+          Serial.print("=> q="); Serial.println(q);
           break;
-       case 'c': //(1)ativa/(0)desativa canal n exemplo:  c01,  c10
+       case 'c': //cnm : n=0-3, m=(o)ativa/(x)desativa canal n exemplo:  c0x,  c2o
           delay(100);
           c=Serial.read();
           delay(100);
@@ -196,6 +223,11 @@ void lerSerial(){
              }else if (c2=='x'){
                 Ch[c-'0']=false;
              }
+             // recalcular o buffer para cada canal e colocar o indice
+             // inicial para cada canal
+             //Serial.println("entrar calcBuffer");
+             calcBuffer();
+             //Serial.println("saiu calcBuffer");
 /*            Serial.print("=> Canais: ");
               for (k=0; k<3;k++){
                 Serial.print("Ch"); Serial.print(k); Serial.print("="); Serial.print(Ch[k]);
@@ -223,7 +255,7 @@ void lerSerial(){
 //        Serial.print("=> canalTrigger="); Serial.println(canalTrigger);
         break;
        case '?':
-          printConfig();
+          printConfig(); 
           break;
         case '1': // enviar Uma Amostra (q leituras)
           if (!uma) uma=true;
@@ -330,9 +362,61 @@ void lerSerial(){
   }
 }
 
+void calcBuffer(){
+  //Serial.println("entrou calcBuffer");
+  chq=0;
+  // conta a quantidade de canais ativos
+  for (int k=0;k<4;k++){
+    if (Ch[k]) {chq+=1;}
+  }
+  // calc size of each channel
+  switch (chq){
+    case 0:
+      qmax=0;
+      break;
+    case 1:
+      qmax=400;
+      break;
+    case 2:
+      qmax=200;
+      break;
+    case 3:
+      qmax=130;
+      break;
+    case 4:
+      qmax=100;
+      break;
+  }
+  /*
+  if (chq<=0) {
+    qmax=0;
+  } else {
+    qmax=408/chq; // chq-qmax; 4-102; 3-136; 2-204; 1-408
+  }
+*/
+  if (q>qmax) {
+    q=qmax;
+  }
+  //Serial.print("q=408/chq=");Serial.print("408/");Serial.print(chq);Serial.print("=");Serial.println(q);
+  // qtdCanais-qmax (chq-qmax) (4-100) (3-130) (2-200) (1-400)
+  int chInit=0;
+  for (int k=0; k<4; k++){
+    if (Ch[k]) {
+      chi[k]=chInit;
+      chInit+=qmax;
+    }
+  }
+  
+ // Serial.print("chq="); Serial.print(chq); Serial.print(" q="); Serial.print(q); Serial.print(" qmax="); Serial.println(qmax);
+//  for (int k=0; k<4; k++){
+ //    Serial.print("k=");Serial.print(k); Serial.print(" chi[k]="); Serial.println(chi[k]);
+ // }
+  
+}
+
 void printHelp(){
    Serial.println("-----------------------");
-   Serial.print("! GaraginOscopio v"); Serial.print(versao); Serial.println(" - RB !");
+   Serial.print("! BegOscopio "); Serial.print(versao); Serial.println(" - rogerio.bego@hotmail.com !");
    Serial.println("-----------------------");
 /*
    Serial.println("----------- help ---------------------");
@@ -359,15 +443,23 @@ void printHelp(){
    */
 }
 
+
+
 void printConfig(){
    Serial.println("------ configuracoes -------");
    Serial.print(">? q="); Serial.println(q);
+   Serial.print(">? qmax="); Serial.println(qmax);
    Serial.print(">? dt="); Serial.print(dt); Serial.print(unidade); Serial.println("s");
    float t=(float)q * (float)dt;
    Serial.print(" -> T=(q*dt)= "); Serial.print(t); Serial.print(unidade); Serial.println("s ");
    Serial.print(">? Canais: "); 
    for (int k=0; k<4; k++){
-      Serial.print("  Ch"); Serial.print(k); Serial.print("="); Serial.print(Ch[k]);     
+      Serial.print("  Ch"); Serial.print(k); Serial.print("="); 
+      if (Ch[k]) {
+        Serial.print("o");     
+      } else {
+        Serial.print("x");
+      }
    }
    Serial.println();
    Serial.print(">? canalTrigger="); Serial.println(canalTrigger);
@@ -379,6 +471,7 @@ void printConfig(){
    Serial.print(">? pwmP="); Serial.print(pwmP); Serial.println("us");
    Serial.print(">? pwmPon="); Serial.print(pwmPon); Serial.println("%");
 }
+
 
 unsigned long microsOuMillis(){
    if (unidade=='u'){
@@ -425,6 +518,31 @@ boolean trigger(){ // a variavel canalTrigger indica qual canal fará o trigger:
 
     
 void lerEnviar(){
+
+/*  
+  // enviar quais canais serao enviados. ex: >ch=1<\t>3<\t>
+  Serial.print(">chq="); Serial.print(chq); Serial.print("\t");
+  for (int k=0; k<4; k++){
+    if (Ch[k]){Serial.print(k); Serial.print("\t");}    
+  }
+  Serial.println("");
+
+  //enviar os valores dos canais
+  for (int k=0; k<q; k++){
+    Serial.print(">v="); Serial.print(k); Serial.print("\t");
+    if (Ch[0]) {Serial.print(chi[0]+k); Serial.print("\t");}
+    if (Ch[1]) {Serial.print(chi[1]+k); Serial.print("\t");}
+    if (Ch[2]) {Serial.print(chi[2]+k); Serial.print("\t");}
+    if (Ch[3]) {Serial.print(chi[3]+k); Serial.print("\t");}
+    Serial.println("");
+  }
+
+  
+  return;
+
+  */
+
+  
   unsigned long tFim; // contador do tempo Final
   unsigned long tTotalReal; // tempo Total da leitura dos valores.
     if (canalTrigger>='0' && canalTrigger<='3'){
@@ -432,18 +550,24 @@ void lerEnviar(){
       Serial.print("trigger="); Serial.println(trigger());
      }
     tTotalReal=microsOuMillis();
+
     for (int k=0; k<q; k++){
       tFim=microsOuMillis()+dt; 
+/*
       if (Ch[0]) {v0[k]=analogRead(A0);}
       if (Ch[1]) {v1[k]=analogRead(A1);}
       if (Ch[2]) {v2[k]=analogRead(A2);}
       if (Ch[3]) {v3[k]=analogRead(A3);}
-    //  if (Ch[0]) {v0[k]=analogRead(A0)/4;}
-    //  if (Ch[1]) {v1[k]=analogRead(A1)/4;}
-    //  if (Ch[2]) {v2[k]=analogRead(A2)/4;}
-    //  if (Ch[3]) {v3[k]=analogRead(A3)/4;}
+*/
+
+      if (Ch[0]) {vb[chi[0]+k]=analogRead(A0);}
+      if (Ch[1]) {vb[chi[1]+k]=analogRead(A1);}
+      if (Ch[2]) {vb[chi[2]+k]=analogRead(A2);}
+      if (Ch[3]) {vb[chi[3]+k]=analogRead(A3);}
       while (microsOuMillis()<tFim){}
     }
+
+    
     tTotalReal=microsOuMillis()-tTotalReal; // total de tempo para ler todas as amostras
     dtReal=tTotalReal/q; // calcular o tempo médio de cada leitura
   Serial.println();
@@ -455,6 +579,32 @@ void lerEnviar(){
     }else if (unidade=='u'){
       Serial.println("e-6");
     }
+    
+  // enviar quais canais serao enviados. ex: >ch=1<\t>3<\t>
+  Serial.print(">chq="); Serial.print(chq); Serial.print("\t");
+  for (int k=0; k<4; k++){
+    if (Ch[k]){Serial.print(k); Serial.print("\t");}    
+  }
+  Serial.println("");
+  
+  //enviar os valores dos canais
+  for (int k=0; k<q; k++){
+    Serial.print(">v="); Serial.print(k); Serial.print("\t");
+    if (Ch[0]) {Serial.print(vb[chi[0]+k]); Serial.print("\t");}
+    if (Ch[1]) {Serial.print(vb[chi[1]+k]); Serial.print("\t");}
+    if (Ch[2]) {Serial.print(vb[chi[2]+k]); Serial.print("\t");}
+    if (Ch[3]) {Serial.print(vb[chi[3]+k]); Serial.print("\t");}
+    Serial.println("");
+
+  /* 
+    if (Ch[0]) {Serial.print(chi[0]+k); Serial.print("\t");}
+    if (Ch[1]) {Serial.print(chi[1]+k); Serial.print("\t");}
+    if (Ch[2]) {Serial.print(chi[2]+k); Serial.print("\t");}
+    if (Ch[3]) {Serial.print(chi[3]+k); Serial.print("\t");}
+    Serial.println("");
+  */
+  }
+ /* -- eliminado em 07/May/2017 - criei buffer dinamico  vb[408] --   
   for (int k=0; k<q; k++){
     Serial.print(">v=");
     Serial.print(k); Serial.print("\t");
@@ -462,7 +612,8 @@ void lerEnviar(){
     Serial.print(v1[k]); Serial.print("\t");
     Serial.print(v2[k]); Serial.print("\t");
     Serial.println(v3[k]);
-  }  
+  } 
+  */ 
   Serial.print(">tTotalReal="); Serial.print(tTotalReal); //Serial.print(unidade); Serial.println("s");
     if (unidade=='m'){
       Serial.println("e-3");
@@ -498,10 +649,10 @@ void lerFluxo(){
         Serial.print("e-6");
       }
       Serial.print("\t");
-    Serial.print(v0); Serial.print("\t");
-    Serial.print(v1); Serial.print("\t");
-    Serial.print(v2); Serial.print("\t");
-    Serial.println(v3);
+    if (Ch[0]) {Serial.print(v0);} else {Serial.print("0");} Serial.print("\t");
+    if (Ch[1]) {Serial.print(v1);} else {Serial.print("0");} Serial.print("\t");
+    if (Ch[2]) {Serial.print(v2);} else {Serial.print("0");} Serial.print("\t");
+    if (Ch[3]) {Serial.println(v3);} else {Serial.println("0");}
   }
 }
 

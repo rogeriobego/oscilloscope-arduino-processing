@@ -1,15 +1,17 @@
 // rogerio.bego@hotmail.com
-String versao="1.2.2";
-// 17/06/2017 - v1.2.2 - changed class Com to show Mac serial port long names - Requested by Roman Random (created TextBox class)
-// 14/06/2017 - v1.2.2 - save data modo "fluxo" - press button to start, press again to stop
-// 09/06/2017 - v1.2.1 - Save data in the file "datayyyymmddhhmmss.txt" - Requested by Carlos Corela
+String versao="v1.3";
+// 24/06/2017 => when start serial communication, processing send initial commands to arduino in eventserial
+// 24/06/2017 => dynamic buffer bug fixed - qInit was not returning to 0 when q changed
+// 22/05/2017 => v1.3 dynamic buffer - 1ch=400pt/ch, 2chs=200pt/ch, 3chs=130pt/ch, 4chs=100pt/ch
+// 28/05/2017 => bug v1.3  => tenho 1 canal ativo, qdo ativo outro canal dá erro na serial (disabling serialEvent())
+// 14/05/2017 - BegOscopio v1.3 
 // 29/01/2017 - v1.2 coloquei um valor para o trigger 0-1024 (0-5v)
 //               transmitir  tv512.  (512=2.5v)
 // 15/10/2015 - acrescentei mais um canal - 4canais
-// 16/09/2015 - devido a falta de memória no garagino, 
+// 16/09/2015 - devido a falta de memória no Arduino, 
 //              mudei o array de int para byte,
 //              então, dividi os valores por 4 (1023/4=255)
-// garaginoscopio v1 08/09/2015
+// 08/09/2015 garaginoscopio v1
 
 //constantes para a classe Dial
 byte escLinear=0; // Dial com escala linear
@@ -53,6 +55,7 @@ CanalXYZ chXYZ;
 Botao resetEixos;
 Botao resetMedir;
 Canal canal[]=new Canal[4];
+//byte chq=4; // qtd de canais ativos
 Grupo grupo[]=new Grupo[3]; // usado para alterar v/div e ms/div simultaneamente em todos os canais usando SHIFT
 // painel para os controles de Amostragem
 Painel pnlAmostra; // painel
@@ -83,9 +86,14 @@ Dial tSinal;    // T (período) do Sinal (100us-8s)
 Dial tonSinal;  // tempo em ON (0-100%)
 
 // verificar se o tempo de leitura Real é igual ao desejado
-FmtNum tTotalReal, dtReal; // tempos reais de leitura enviados pelo garagino
+FmtNum tTotalReal, dtReal; // tempos reais de leitura enviados pelo Arduino
 boolean dtErro=false;
 float Q=45.0; //tamanho do quadrado na tela
+
+int chq=4; // qtd de canais selecionados (visiveis) 
+//int qMax=102; // chq-qMax: 4-102, 3-136, 2-204, 1-408
+int ch[]={0,1,2,3}; // quais canais estão visiveis (ON)
+
 
 //temporarios
 int marg1, marg2; //margem temporaria para ajustar a posição dos objetos
@@ -108,7 +116,6 @@ void setup() {
   com=new Com(port, tela.x+tela.w-250, 5, 250, 55);
   //com=new Com(port, tela.x+tela.w-175, tela.y-30, 175, 20);
   
-
   //XYZ=new Botao("XYZ", marg2, tela.y, 45, 20);
   //XYZy=tela.y+5*Q;
   //for (int k=0; k<3;k++){
@@ -149,8 +156,8 @@ void setup() {
 
   // 08-jun-2017 - button to save data  in data.txt
   save=new Botao("salvar datax.txt",calcFreq.x,calcFreq.y+calcFreq.h+5,150,20);
-  
-  
+
+
   //medidor de resistor/capacitor
   pnlRC=new Painel("", tela.x, tela.y+tela.h+10, 125, 40);
   RC=new CheckBox("medir res./cap.", pnlRC.x, pnlRC.y, 15);
@@ -402,9 +409,32 @@ void mouseClicked() {
       com.conectado=false;
       com.erro=true;
     }
+    
+    if (com.conectado){      // start default was placed when eventSerial receives >init=v1.5
+      /*
+      //initProgram();
+      println("init delay 5000");
+      delay(5000);
+      println("end delay 5000");
+      for (int k=0;k<4;k++){
+        canal[k].chN.clicado=true;
+      }
+      // ligar uma amostra
+     variasAmostras.clicado=true;
+     if (variasAmostras.clicado) {
+        port.write("vo");
+      } else {
+        port.write("vx");
+      }
+      println("Abri Serial");
+      println("variasAmostra.clicado=",variasAmostras.clicado);
+      */
+    }
+    
   } else if (r==-1) { //retornou -1 então fechar serial
     port.stop();
     com.conectado=false;
+    com.versionArduino.tex="";
     com.erro=false;
   }
 
@@ -455,13 +485,14 @@ void mouseClicked() {
   
   for (int k=0; k<4; k++) {
     if (canal[k].mouseClicado()){ // se alterou o Chn para visível ou não visível
-       if (com.conectado){                           // enviar comando para o Garagino não ler esse canal
+       if (com.conectado){                           // enviar comando para o Arduino não ler esse canal
          if (canal[k].chN.clicado){
             port.write("c"+str(k)+"o");
          } else {
             port.write("c"+str(k)+"x");
          }
        }
+       verificarQ();
     }
   }
 
@@ -531,7 +562,7 @@ void mouseClicked() {
           for (int j=4;j>k;j--){
             trigger[j].clicado=false;
           }
-          //enviar comando para o garagino
+          //enviar comando para o Arduino
           if (com.conectado) {
             port.write("t"+trigger[k].tex);
           }      
@@ -547,7 +578,7 @@ void mouseClicked() {
   verPontos.mouseClicado();
   calcFreq.mouseClicado();
   grafDif.mouseClicado();
-  
+
   //08-Jun-2017 write data to file
   if (save.mouseClicado()){
         // 14-Jun-2017 save fluxo or save memory
@@ -613,7 +644,7 @@ void mouseClicked() {
   }
   //ruido.mouseClicado();
 
-  //se clicou em dt ou q então enviar comando para garagino e ajustar tela
+  //se clicou em dt ou q então enviar comando para Arduino e ajustar tela
   if (dt.mouseClicado()) { // se true alterou dt, então ajustarFt() (escala de t na tela)
     enviarDt();
     ajustarFt();
@@ -655,7 +686,7 @@ void mouseClicked() {
          break; 
       }
     }
-   // println("k2=",k2);
+    //println("k2=",k2);
     
     if (k2>=0 && k2<=3){
        pnlAmostra.piscar=true;
@@ -723,6 +754,39 @@ void mouseClicked() {
   }
 }
 
+void verificarQ(){
+  chq=0; // contar qtd de canais ativos
+  for (int k=0; k<4; k++){
+     if (canal[k].chN.clicado){
+       chq+=1;
+     }
+  }
+  //q.vMax=408.0/chq;
+  switch (chq){
+     case 0:
+       q.vMax=0;
+       break;
+     case 1:
+       q.vMax=400;
+       break;
+     case 2:
+       q.vMax=200;
+       break;
+     case 3:
+       q.vMax=130;
+       break;
+     case 4:
+       q.vMax=100;
+       break;
+  }
+  if (q.v.v>q.vMax) {
+    q.setV(q.vMax);
+    ajustarFt();
+  } else {
+    q.setV(q.v.v);
+  }
+}
+
 void mousePressed() {
   //d.mousePressionou(); 
   for (int k=0; k<4; k++) {
@@ -768,7 +832,7 @@ void mouseReleased() {
   fluxoContinuo.mouseSoltou();
 
 
-  //se soltar o mouse no dt ou q, então enviar os dados para o Garagino
+  //se soltar o mouse no dt ou q, então enviar os dados para o Arduino
   if (dt.mouseSoltou()) {
     enviarDt();
     ajustarFt();
@@ -856,6 +920,12 @@ void mouseDragged() {
   //}
 }
 
+
+void keyReleased(){
+  keyPressed=false;
+}
+
+
 void fecharDados(){
       output.close();  
       outputOpen=false;
@@ -864,11 +934,12 @@ void fecharDados(){
       save.clicado=false;
 }
 
+
 /* ==========================================
-     Comando enviados para o Garagino 
+     Comando enviados para o Arduino
    ========================================== */
 
-//=== Ger.Sinal - Se alterou f/T/Ton - enviar comando para Garagino ==
+//=== Ger.Sinal - Se alterou f/T/Ton - enviar comando para Arduino ==
 void enviarCmd(String cmd){
   if (cmd.equals("tSinal")){
     if (com.conectado){
@@ -883,7 +954,7 @@ void enviarCmd(String cmd){
   }
 }
 
-//==Se alterou dt ou q enviar comando para Garagino e ajustar a escala da tela ==
+//==Se alterou dt ou q enviar comando para Arduino e ajustar a escala da tela ==
 void enviarDt() {
   if (com.conectado) {
     port.write("d"+dt.v.printV());
@@ -899,7 +970,7 @@ void enviarQ() {
 
 void ajustarFt() {
   float ftNew=dt.v.getV()*q.v.getV()/10.0;
-  //println("ftNew=",ftNew," dt=",dt.v.getV()," q=",q.v.getV());
+  println("ftNew=",ftNew," dt=",dt.v.getV()," q=",q.v.getV());
   for (int k=0; k<4; k++) {
     canal[k].ft.setV(ftNew);
   }
@@ -910,18 +981,43 @@ void ajustarFt() {
   =====================================*/
 void serialEvent(Serial p) {
   //if (p.available()>0) {}
+ try { 
   String cmd="", val="";
   String tex=p.readStringUntil(10);
-  //print(">>>> ",tex);
+  //print(">>>> ",tex); //eliminar
   if (tex.charAt(0)=='>') { //comando: >cmd=v1(tab)v2(tab)v3(tab)
     int i=tex.indexOf("=");
     if (i>=0) { // encontrou sinal "=" (igual)  obs: i=-1 => não encontrou o sinal '='
       cmd=tex.substring(1, i); // pegar o comando obs: substring(inclusive,exclusive)
       val=tex.substring(i+1); // pegar o valor
       //println("cmd=",cmd," val=",val);
-      if (cmd.equals("f")) { // entra fluxo de dados - deslocar dados e armazenar no final
+      if (cmd.equals("init")) { // init
+        println("versionArduino=<",val,">");
+        com.versionArduino.tex=".ino "+val.substring(0,val.length()-1);
+        for (int k=0;k<4;k++){
+          canal[k].chN.clicado=true;
+        }
+        // ligar varias amostra
+       variasAmostras.clicado=true;
+       port.write("vo");
+       // enviar dt
+        enviarDt();
+       // enviar q
+       verificarQ();
+        enviarQ();
+        enviarCmd("tSinal");
+        enviarCmd("tonSinal");
+       
+       //if (variasAmostras.clicado) {
+       //   port.write("vo");
+       // } else {
+       //   port.write("vx");
+       // }
+        println("Abri Serial");
+        println("variasAmostra.clicado=",variasAmostras.clicado);
+        
+      } else if (cmd.equals("f")) { // entra fluxo de dados - deslocar dados e armazenar no final
         String tex2[]=splitTokens(val); //val = "0(t)dtReal(t)ch0(t)ch1(t)ch2"
-        //int vc[]=int(splitTokens(val));
         //deslocar os dados para baixo, para incluir o novo dado no final
         for (int j=0; j<4; j++) {
           for (int k=1; k<q.v.v; k++) {
@@ -934,7 +1030,7 @@ void serialEvent(Serial p) {
         canal[3].v[int(q.v.v-1)]=int(tex2[5]);
         dtReal.setV(float(tex2[1]));
         if (dtReal.v-dt.v.v>1.1*dt.v.v){ dtErro=true;} else {dtErro=false;}
-
+       
         // salvar em arquivo
         if (outputOpen) {
           float f=5000.0/1023.0;
@@ -956,23 +1052,52 @@ void serialEvent(Serial p) {
         }
 
         //println("cmd=",cmd," val=",val," dtReal=",dtReal.printV());
+       
+       
+      } else if (cmd.equals("chq")) {       // entra qtd e quais canais serão recebidos
+        int v[]=int(splitTokens(val));
+ //voltar        //        println("========================");
+ //voltar        //        println("cmd=",cmd," val=",val);
+        chq=v[0];
+        for (int k=0;k<chq;k++){
+          ch[k]=v[k+1];
+        }
+ //voltar        //        println("chs=",chq);
+        for (int k=0;k<chq;k++){
+ //voltar        //           println("ch[",k,"]=",ch[k]); 
+        }
+ //voltar        //        println("========================");
       } else if (cmd.equals("v")) { // entrada de Varias Amostra
         int v[]=int(splitTokens(val));
-        //println("v.length=",v.length);
+ //voltar        //        println("tex=",tex);
+        //println("cmd=",cmd," val=",val);
+        //println("v.length=",v.length," chq=",chq);
+        //for (int k=0; k<v.length; k++){
+        //   print(" v[",k,"]=",v[k]); 
+        //}
+        //println("");
+        
+        if (v.length==chq+1){ // >v=1 1024 100 300 300
+          for (int k=0; k<chq; k++){
+             canal[ch[k]].buffer[v[0]]=v[k+1]; 
+          }
+        }
+ /*   
         int kk=v[0]; // indice da matriz
         canal[0].buffer[v[0]]=v[1];
         canal[1].buffer[v[0]]=v[2];
         canal[2].buffer[v[0]]=v[3];
         canal[3].buffer[v[0]]=v[4];
-      } else if (cmd.equals("q")) { // quantidade de variaveis
-        //q.val=float(val);
+*/
+    } else if (cmd.equals("q")) { // quantidade de variaveis
+       // q.setV(float(val));
       } else if (cmd.equals("dt")) { // tamanho do dt (ms)
         //dt.val=float(val);
       } else if (cmd.equals("tTotalReal")) { // tempo total da amostra
         //println("atualizou");
         tTotalReal.setV(float(val));
         //text(tTotalReal,pnlAmostra.x+2,pnlAmostra.y+pnlAmostra.h);
-        //println("cmd=",cmd," val=",val," tTotalReal=",tTotalReal.printV());
+ //voltar        //        println("cmd=",cmd," val=",val," tTotalReal=",tTotalReal.printV());
         canal[0].atualizou=true;  // terminou de entrar os dados então
         canal[1].atualizou=true;  //  carregar do buffer
         canal[2].atualizou=true;
@@ -989,7 +1114,7 @@ void serialEvent(Serial p) {
         dtReal.setV(float(val));
         if (dtReal.n>dt.v.n+10){ dtErro=true;} else {dtErro=false;}
         //text(dtReal,pnlAmostra.x+2,pnlAmostra.y+pnlAmostra.h-12);
-        //println("cmd=",cmd," val=",val," dtReal=",dtReal.printV());
+ //voltar        //        println("cmd=",cmd," val=",val," dtReal=",dtReal.printV());
         
       } else if (cmd.equals("r") || cmd.equals("c") || cmd.equals("rc")) { // valor do resistor
         String tex2[]=splitTokens(val, "\t\r");
@@ -1001,22 +1126,22 @@ void serialEvent(Serial p) {
         if (cmd.equals("rc")) cmd="";
         RC.tex2=cmd.toUpperCase()+" "+tex2[1]+" ("+tex2[0]+")";
         
-      } else if (cmd.charAt(0)=='?') {  // carregando as configurações do Garagino (ao conectar) 
+      } else if (cmd.charAt(0)=='?') {  // carregando as configurações do Arduino (ao conectar) 
         cmd=cmd.substring(2); // eliminar 2 caracteres iniciais "? comando"
         val=val.substring(0,val.length()-2); // eliminar 2 caracteres finais:  \n\r(13,10)(^M^J) (retorno de linha)        
-        //println("cmd=",cmd," val=",val);
+ //voltar        //        println("cmd=",cmd," val=",val);
         if (cmd.equals("q")){ // val=100
           q.v.v=float(val);
         } else if (cmd.equals("dt")){
           char unid=val.charAt(val.length()-2);
           val=val.substring(0,val.length()-2);
-         // println("unid=",unid," val=",val);
+ //voltar        //          println("unid=",unid," val=",val);
           if (unid=='u'){
             val=val+"e-6";            
           }else{
             val=val+"e-3";
           }
-          //println("val=",val);
+ //voltar        //          println("val=",val);
           dt.setV(float(val));
           ajustarFt();
           
@@ -1028,7 +1153,7 @@ void serialEvent(Serial p) {
         } else if (cmd.equals("uma")){ // val= 0 ou 1
           //umaAmostra.clicado=boolean(int(val));
         }else if (cmd.equals("varias")){ // val= 0 ou 1
-          variasAmostras.clicado=boolean(int(val));
+          //variasAmostras.clicado=boolean(int(val));
         }else if (cmd.equals("fluxo")){ // val= 0 ou 1
           fluxoContinuo.clicado=boolean(int(val));
         }else if (cmd.equals("lerRC")){ // val= 0 ou 1
@@ -1049,11 +1174,18 @@ void serialEvent(Serial p) {
         }else if (cmd.equals("pwmPon")){  // cmd="pwmPon", val="25%"
           val=val.substring(0,val.length()-1);
           tonSinal.setV(float(val));
-          //println("pwmPon=",float(val));
-        }
+ //voltar        //          println("pwmPon=",float(val));
+        }else {
+           print("else >>>> ",tex);
+         }
       }
     }
     //println("cmd=",cmd);
     //println("val=",val);
   }
+ }
+ catch(RuntimeException e){
+    e.printStackTrace();
+    
+ }
 }
