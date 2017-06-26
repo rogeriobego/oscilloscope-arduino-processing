@@ -119,7 +119,7 @@ class Canal{
         //float p0Out=tela.x+tela.w-qInit*fq;
         triangle(p0Out,p0,p0Out-10,p0+10,p0Out+10,p0+10);
       } else {
-        //qInit=0;
+        qInit=0;
         p0Out=tela.x+tela.w;
       }
       
