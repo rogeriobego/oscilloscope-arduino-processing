@@ -39,7 +39,7 @@ const unsigned char PS_128 = (1 << ADPS2) | (1 << ADPS1) | (1 << ADPS0);
 //======================================
 
 boolean  pwmOn=true; 
-unsigned long pwmP=100000; //Periodo 100000u=100m=0.1s => 10Hz
+unsigned long pwmP=20000; //Periodo 20000us=20ms=0.02s => 50Hz
 byte pwmPon=25; // % do pwmP em HIGH
 
 /* -- 07/May/2017 --

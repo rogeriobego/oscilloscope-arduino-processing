@@ -165,9 +165,9 @@ void setup() {
   //Gerador de Sinais - agora só gera onda quadrada, depois vai gerar triangulo, denteDeSerra, e senidal
   pnlSinal=new Painel("", pnlRC.x+pnlRC.w+10, pnlRC.y, 100, 85);
   sinal=new CheckBox("Ger.Sinal", pnlSinal.x, pnlSinal.y, 15);
-  fSinal=new Dial(escLog, altSolta, !nInt, fmt, "f", "Hz", 10f, 125e-3f, 10e3f, pnlSinal.x+5, sinal.y+sinal.h+2, pnlSinal.w-10, 20);
-  tSinal=new Dial(escLog, altSolta, !nInt, fmt, "T", "s", 100e-3f, 100e-6f, 8f, fSinal.x, fSinal.y+fSinal.h+2, fSinal.w, fSinal.h);
-  tonSinal=new Dial(escLinear, altSolta, nInt, !fmt, "Ton", "%", 50f, 0f, 100f, tSinal.x, tSinal.y+tSinal.h+2, tSinal.w, tSinal.h);
+  fSinal=new Dial(escLog, altSolta, !nInt, fmt, "f", "Hz", 50f, 125e-3f, 10e3f, pnlSinal.x+5, sinal.y+sinal.h+2, pnlSinal.w-10, 20);
+  tSinal=new Dial(escLog, altSolta, !nInt, fmt, "T", "s", 20e-3f, 100e-6f, 8f, fSinal.x, fSinal.y+fSinal.h+2, fSinal.w, fSinal.h);
+  tonSinal=new Dial(escLinear, altSolta, nInt, !fmt, "Ton", "%", 25f, 0f, 100f, tSinal.x, tSinal.y+tSinal.h+2, tSinal.w, tSinal.h);
 
   // posicionamento da Amostragem 
   pnlAmostra=new Painel("Amostragem", pnlSinal.x+pnlSinal.w+10, pnlSinal.y, 200, 85);
@@ -994,19 +994,25 @@ void serialEvent(Serial p) {
       if (cmd.equals("init")) { // init
         println("versionArduino=<",val,">");
         com.versionArduino.tex=".ino "+val.substring(0,val.length()-1);
+        //start all channels
         for (int k=0;k<4;k++){
           canal[k].chN.clicado=true;
         }
+       // enviar dt
+        enviarDt();
+       // verificar e enviar q
+       verificarQ();
+        enviarQ();
+        
+        // send command to Arduino -> start Signal Gennerator 60Hz tOn25%
+        enviarCmd("tSinal");
+        enviarCmd("tonSinal");
+        sinal.clicado=true;
+        port.write("so");
+        
         // ligar varias amostra
        variasAmostras.clicado=true;
        port.write("vo");
-       // enviar dt
-        enviarDt();
-       // enviar q
-       verificarQ();
-        enviarQ();
-        enviarCmd("tSinal");
-        enviarCmd("tonSinal");
        
        //if (variasAmostras.clicado) {
        //   port.write("vo");
